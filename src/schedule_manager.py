@@ -17,13 +17,23 @@ class Visit:
     end_time: datetime
     original_text: str
     created_at: datetime
+    
+    def __hash__(self):
+        # Hash based on start_time and end_time (ignore text variations)
+        return hash((self.start_time, self.end_time))
+    
+    def __eq__(self, other):
+        if not isinstance(other, Visit):
+            return False
+        # Consider visits equal if they have same start and end time
+        return self.start_time == other.start_time and self.end_time == other.end_time
 
 
 class ScheduleManager:
     """Manages padel visit schedules with Russian date/time parsing."""
     
     def __init__(self):
-        self.visits = []  # In-memory storage
+        self.visits = set()  # In-memory storage as set to prevent duplicates
         
         # Russian month names mapping
         self.russian_months = {
@@ -304,7 +314,12 @@ class ScheduleManager:
             created_at=datetime.now(self.moscow_tz)
         )
         
-        self.visits.append(visit)
+        # Check if visit already exists (based on start_time and end_time)
+        if visit in self.visits:
+            logger.info(f"Duplicate visit detected: {visit.start_time.strftime('%d.%m.%Y')} {visit.start_time.strftime('%H:%M')}-{visit.end_time.strftime('%H:%M')}")
+            return None
+        
+        self.visits.add(visit)
         logger.info(f"Added visit: {visit.start_time.strftime('%d.%m.%Y')} {visit.start_time.strftime('%H:%M')}-{visit.end_time.strftime('%H:%M')}")
         
         return visit
@@ -315,10 +330,10 @@ class ScheduleManager:
         before_count = len(self.visits)
         
         # Keep only visits that haven't ended yet
-        self.visits = [
+        self.visits = {
             visit for visit in self.visits
             if visit.end_time > now
-        ]
+        }
         
         removed_count = before_count - len(self.visits)
         if removed_count > 0:

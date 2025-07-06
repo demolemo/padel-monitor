@@ -69,8 +69,8 @@ class TelegramNotifier:
         except Exception as e:
             logger.error(f"Error handling message: {e}")
 
-    async def schedule_handler(self, update, context):
-        """Handle /schedule command - parse visit info from replied message"""
+    async def add_handler(self, update, context):
+        """Handle /add command - parse visit info from replied message"""
         try:
             # Only respond in the configured chat
             if str(update.effective_chat.id) != str(self.chat_id):
@@ -78,7 +78,7 @@ class TelegramNotifier:
                 
             message = update.message
             if not message.reply_to_message:
-                await message.reply_text("❌ Используйте /schedule как ответ на сообщение с информацией о визите")
+                await message.reply_text("❌ Используйте /add как ответ на сообщение с информацией о визите")
                 return
                 
             # Get the replied message text
@@ -105,10 +105,19 @@ class TelegramNotifier:
                 logger.info(f"Added visit: {date_str} {time_str}")
                 
             else:
-                await message.reply_text("❌ Не удалось распознать дату и время в сообщении")
+                # Check if it was a parsing error or duplicate
+                visit_info = self.schedule_manager.parse_visit_info(replied_text)
+                if visit_info:
+                    # Parsing worked, so it was a duplicate
+                    date_str = visit_info['start_time'].strftime('%d.%m.%Y')
+                    time_str = f"{visit_info['start_time'].strftime('%H:%M')}-{visit_info['end_time'].strftime('%H:%M')}"
+                    await message.reply_text(f"❌ Визит на {date_str} в {time_str} уже существует")
+                else:
+                    # Parsing failed
+                    await message.reply_text("❌ Не удалось распознать дату и время в сообщении")
                 
         except Exception as e:
-            logger.error(f"Error handling schedule command: {e}")
+            logger.error(f"Error handling add command: {e}")
             await message.reply_text("❌ Произошла ошибка при обработке команды")
 
     async def list_handler(self, update, context):
@@ -143,13 +152,13 @@ class TelegramNotifier:
 **Доступные команды:**
 
 🏓 `/ping` - Проверка на живость
-📅 `/schedule` - Добавить игру в расписание
+📅 `/add` - Добавить игру в расписание
 📋 `/list` - Показать запланированные игры
 ❓ `/help` - Показать что умеет
 
 **Как добавить игру:**
 1. Найдите сообщение с датой и временем игры
-2. Ответьте на это сообщение командой `/schedule`
+2. Ответьте на это сообщение командой `/add`
 3. Бот автоматически распознает дату и время игры
 """
             
@@ -168,8 +177,8 @@ class TelegramNotifier:
             # Add ping command handler
             self.application.add_handler(CommandHandler("ping", self.ping_handler))
             
-            # Add schedule command handler
-            self.application.add_handler(CommandHandler("schedule", self.schedule_handler))
+            # Add add command handler
+            self.application.add_handler(CommandHandler("add", self.add_handler))
             
             # Add list command handler
             self.application.add_handler(CommandHandler("list", self.list_handler))
@@ -180,7 +189,7 @@ class TelegramNotifier:
             # Add message handler for mentions
             self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message_handler))
             
-            logger.info("Telegram bot handlers configured (ping, schedule, list, help)")
+            logger.info("Telegram bot handlers configured (ping, add, list, help)")
 
     async def start_polling(self):
         """Start the bot's polling for incoming messages"""
