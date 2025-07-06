@@ -393,5 +393,9 @@ $RECYCLE.BIN/
 
 # python version
 .python-version
+
+# local logging files
+*.log
+
 # End of https://www.toptal.com/developers/gitignore/api/python,uv,macos,linux,windows,visualstudiocode,pycharm,jupyternotebooks
 
