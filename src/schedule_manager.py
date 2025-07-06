@@ -309,8 +309,26 @@ class ScheduleManager:
         
         return visit
     
-    def get_upcoming_visits(self, days_ahead: int = 30) -> List[Dict]:
+    def cleanup_past_visits(self):
+        """Remove visits that have already ended."""
+        now = datetime.now(self.moscow_tz)
+        before_count = len(self.visits)
+        
+        # Keep only visits that haven't ended yet
+        self.visits = [
+            visit for visit in self.visits
+            if visit.end_time > now
+        ]
+        
+        removed_count = before_count - len(self.visits)
+        if removed_count > 0:
+            logger.info(f"Cleaned up {removed_count} past visit(s)")
+    
+    def get_upcoming_visits(self, days_ahead: int = 30) -> List[Visit]:
         """Get upcoming visits sorted by date/time."""
+        # Clean up past visits first
+        self.cleanup_past_visits()
+        
         now = datetime.now(self.moscow_tz)
         cutoff = now + timedelta(days=days_ahead)
         
@@ -324,7 +342,7 @@ class ScheduleManager:
         
         return upcoming
     
-    def format_visit_list(self, visits: List[Dict]) -> str:
+    def format_visit_list(self, visits: List[Visit]) -> str:
         """Format visits as a nice table for telegram."""
         if not visits:
             return "🎾 Нет запланированных визитов"
