@@ -1,4 +1,4 @@
-"""Schedule manager for padel visits with Russian date/time parsing."""
+"""Schedule manager for padel slots with Russian date/time parsing."""
 
 import re
 from datetime import datetime, timezone, timedelta
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
-class Visit:
+class Slot:
     id: str
     start_time: datetime
     end_time: datetime
@@ -23,17 +23,17 @@ class Visit:
         return hash((self.start_time, self.end_time))
     
     def __eq__(self, other):
-        if not isinstance(other, Visit):
+        if not isinstance(other, Slot):
             return False
-        # Consider visits equal if they have same start and end time
+        # Consider slots equal if they have same start and end time
         return self.start_time == other.start_time and self.end_time == other.end_time
 
 
 class ScheduleManager:
-    """Manages padel visit schedules with Russian date/time parsing."""
+    """Manages padel slot schedules with Russian date/time parsing."""
     
     def __init__(self):
-        self.visits = set()  # In-memory storage as set to prevent duplicates
+        self.slots = set()  # In-memory storage as set to prevent duplicates
         
         # Russian month names mapping
         self.russian_months = {
@@ -245,8 +245,8 @@ class ScheduleManager:
         
         return None
     
-    def parse_visit_info(self, text: str) -> Optional[Dict]:
-        """Parse visit information from Russian text."""
+    def parse_slot_info(self, text: str) -> Optional[Dict]:
+        """Parse slot information from Russian text."""
         # Try different date parsing methods in order of preference
         date = None
         
@@ -295,61 +295,61 @@ class ScheduleManager:
             'original_text': text
         }
     
-    def add_visit(self, text: str) -> Optional[Visit]:
-        """Add a visit from parsed text."""
-        visit_info = self.parse_visit_info(text)
+    def add_slot(self, text: str) -> Optional[Slot]:
+        """Add a slot from parsed text."""
+        slot_info = self.parse_slot_info(text)
         
-        if not visit_info:
+        if not slot_info:
             return None
             
         # Create hash from start_time, end_time, and original_text
-        hash_content = f"{visit_info['start_time'].isoformat()}_{visit_info['end_time'].isoformat()}_{text}"
-        visit_id = hashlib.sha256(hash_content.encode()).hexdigest()
+        hash_content = f"{slot_info['start_time'].isoformat()}_{slot_info['end_time'].isoformat()}_{text}"
+        slot_id = hashlib.sha256(hash_content.encode()).hexdigest()
         
-        visit = Visit(
-            id=visit_id,
-            start_time=visit_info['start_time'],
-            end_time=visit_info['end_time'],
+        slot = Slot(
+            id=slot_id,
+            start_time=slot_info['start_time'],
+            end_time=slot_info['end_time'],
             original_text=text,
             created_at=datetime.now(self.moscow_tz)
         )
         
-        # Check if visit already exists (based on start_time and end_time)
-        if visit in self.visits:
-            logger.info(f"Duplicate visit detected: {visit.start_time.strftime('%d.%m.%Y')} {visit.start_time.strftime('%H:%M')}-{visit.end_time.strftime('%H:%M')}")
+        # Check if slot already exists (based on start_time and end_time)
+        if slot in self.slots:
+            logger.info(f"Duplicate slot detected: {slot.start_time.strftime('%d.%m.%Y')} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
             return None
         
-        self.visits.add(visit)
-        logger.info(f"Added visit: {visit.start_time.strftime('%d.%m.%Y')} {visit.start_time.strftime('%H:%M')}-{visit.end_time.strftime('%H:%M')}")
+        self.slots.add(slot)
+        logger.info(f"Added slot: {slot.start_time.strftime('%d.%m.%Y')} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
         
-        return visit
+        return slot
     
-    def cleanup_past_visits(self):
-        """Remove visits that have already ended."""
+    def cleanup_past_slots(self):
+        """Remove slots that have already ended."""
         now = datetime.now(self.moscow_tz)
-        before_count = len(self.visits)
+        before_count = len(self.slots)
         
-        # Keep only visits that haven't ended yet
-        self.visits = {
-            visit for visit in self.visits
-            if visit.end_time > now
+        # Keep only slots that haven't ended yet
+        self.slots = {
+            slot for slot in self.slots
+            if slot.end_time > now
         }
         
-        removed_count = before_count - len(self.visits)
+        removed_count = before_count - len(self.slots)
         if removed_count > 0:
-            logger.info(f"Cleaned up {removed_count} past visit(s)")
+            logger.info(f"Cleaned up {removed_count} past slot(s)")
     
-    def get_upcoming_visits(self, days_ahead: int = 30) -> List[Visit]:
-        """Get upcoming visits sorted by date/time."""
-        # Clean up past visits first
-        self.cleanup_past_visits()
+    def get_upcoming_slots(self, days_ahead: int = 30) -> List[Slot]:
+        """Get upcoming slots sorted by date/time."""
+        # Clean up past slots first
+        self.cleanup_past_slots()
         
         now = datetime.now(self.moscow_tz)
         cutoff = now + timedelta(days=days_ahead)
         
         upcoming = [
-            visit for visit in self.visits
-            if visit.start_time >= now and visit.start_time <= cutoff
+            slot for slot in self.slots
+            if slot.start_time >= now and slot.start_time <= cutoff
         ]
         
         # Sort by start time
@@ -357,22 +357,22 @@ class ScheduleManager:
         
         return upcoming
     
-    def format_visit_list(self, visits: List[Visit]) -> str:
-        """Format visits as a nice table for telegram."""
-        if not visits:
-            return "🎾 Нет запланированных визитов"
+    def format_slot_list(self, slots: List[Slot]) -> str:
+        """Format slots as a nice table for telegram."""
+        if not slots:
+            return "🎾 Нет запланированных слотов"
             
-        lines = ["🎾 **Запланированные визиты:**", ""]
+        lines = ["🎾 **Запланированные слоты:**", ""]
         
-        for visit in visits:
-            date_str = visit.start_time.strftime('%d.%m.%Y')
-            time_str = f"{visit.start_time.strftime('%H:%M')}-{visit.end_time.strftime('%H:%M')}"
+        for slot in slots:
+            date_str = slot.start_time.strftime('%d.%m.%Y')
+            time_str = f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}"
             
             lines.append(f"📅 **{date_str}** в **{time_str}**")
             lines.append("")
         
         return "\n".join(lines)
     
-    def get_visit_count(self) -> int:
-        """Get total number of visits."""
-        return len(self.visits) 
+    def get_slot_count(self) -> int:
+        """Get total number of slots."""
+        return len(self.slots) 

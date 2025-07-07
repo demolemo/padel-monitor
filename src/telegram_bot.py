@@ -70,7 +70,7 @@ class TelegramNotifier:
             logger.error(f"Error handling message: {e}")
 
     async def add_handler(self, update, context):
-        """Handle /add command - parse visit info from replied message"""
+        """Handle /add command - parse slot info from replied message"""
         try:
             # Only respond in the configured chat
             if str(update.effective_chat.id) != str(self.chat_id):
@@ -78,7 +78,7 @@ class TelegramNotifier:
                 
             message = update.message
             if not message.reply_to_message:
-                await message.reply_text("❌ Используйте /add как ответ на сообщение с информацией о визите")
+                await message.reply_text("❌ Используйте /add как ответ на сообщение с информацией о слоте")
                 return
                 
             # Get the replied message text
@@ -87,31 +87,31 @@ class TelegramNotifier:
                 await message.reply_text("❌ Не удалось получить текст сообщения")
                 return
             
-            # Try to parse visit info
-            visit = self.schedule_manager.add_visit(replied_text)
+            # Try to parse slot info
+            slot = self.schedule_manager.add_slot(replied_text)
             
-            if visit:
-                date_str = visit.start_time.strftime('%d.%m.%Y')
-                time_str = f"{visit.start_time.strftime('%H:%M')}-{visit.end_time.strftime('%H:%M')}"
+            if slot:
+                date_str = slot.start_time.strftime('%d.%m.%Y')
+                time_str = f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}"
                 
-                response = f"""✅ **Визит добавлен!**
+                response = f"""✅ **Слот добавлен!**
 
 📅 **Дата:** {date_str}
 ⏰ **Время:** {time_str}
 
-Всего визитов: {self.schedule_manager.get_visit_count()}"""
+Всего слотов: {self.schedule_manager.get_slot_count()}"""
                 
                 await message.reply_text(response, parse_mode='Markdown')
-                logger.info(f"Added visit: {date_str} {time_str}")
+                logger.info(f"Added slot: {date_str} {time_str}")
                 
             else:
                 # Check if it was a parsing error or duplicate
-                visit_info = self.schedule_manager.parse_visit_info(replied_text)
-                if visit_info:
+                slot_info = self.schedule_manager.parse_slot_info(replied_text)
+                if slot_info:
                     # Parsing worked, so it was a duplicate
-                    date_str = visit_info['start_time'].strftime('%d.%m.%Y')
-                    time_str = f"{visit_info['start_time'].strftime('%H:%M')}-{visit_info['end_time'].strftime('%H:%M')}"
-                    await message.reply_text(f"❌ Визит на {date_str} в {time_str} уже существует")
+                    date_str = slot_info['start_time'].strftime('%d.%m.%Y')
+                    time_str = f"{slot_info['start_time'].strftime('%H:%M')}-{slot_info['end_time'].strftime('%H:%M')}"
+                    await message.reply_text(f"❌ Слот на {date_str} в {time_str} уже существует")
                 else:
                     # Parsing failed
                     await message.reply_text("❌ Не удалось распознать дату и время в сообщении")
@@ -121,22 +121,22 @@ class TelegramNotifier:
             await message.reply_text("❌ Произошла ошибка при обработке команды")
 
     async def list_handler(self, update, context):
-        """Handle /list command - show upcoming visits"""
+        """Handle /list command - show upcoming slots"""
         try:
             # Only respond in the configured chat
             if str(update.effective_chat.id) != str(self.chat_id):
                 return
                 
             message = update.message
-            upcoming_visits = self.schedule_manager.get_upcoming_visits()
-            formatted_list = self.schedule_manager.format_visit_list(upcoming_visits)
+            upcoming_slots = self.schedule_manager.get_upcoming_slots()
+            formatted_list = self.schedule_manager.format_slot_list(upcoming_slots)
             
             await message.reply_text(formatted_list, parse_mode='Markdown')
-            logger.info(f"Displayed {len(upcoming_visits)} upcoming visits")
+            logger.info(f"Displayed {len(upcoming_slots)} upcoming slots")
             
         except Exception as e:
             logger.error(f"Error handling list command: {e}")
-            await message.reply_text("❌ Произошла ошибка при получении списка визитов")
+            await message.reply_text("❌ Произошла ошибка при получении списка слотов")
 
     async def help_handler(self, update, context):
         """Handle /help command - show all available commands"""
@@ -152,14 +152,14 @@ class TelegramNotifier:
 **Доступные команды:**
 
 🏓 `/ping` - Проверка на живость
-📅 `/add` - Добавить игру в расписание
-📋 `/list` - Показать запланированные игры
+📅 `/add` - Добавить слот в расписание
+📋 `/list` - Показать запланированные слоты
 ❓ `/help` - Показать что умеет
 
-**Как добавить игру:**
-1. Найдите сообщение с датой и временем игры
+**Как добавить слот:**
+1. Найдите сообщение с датой и временем слота
 2. Ответьте на это сообщение командой `/add`
-3. Бот автоматически распознает дату и время игры
+3. Бот автоматически распознает дату и время слота
 """
             
             await message.reply_text(help_text, parse_mode='Markdown')
